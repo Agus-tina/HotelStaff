@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   email VARCHAR(150) NOT NULL UNIQUE,
   usuario VARCHAR(80) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
+  google_id VARCHAR(255) UNIQUE,
+  avatar_url VARCHAR(500),
   telefono VARCHAR(50),
   rol ENUM('admin', 'empleado') NOT NULL DEFAULT 'empleado',
   estado ENUM('activo', 'inactivo') NOT NULL DEFAULT 'activo',

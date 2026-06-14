@@ -2,9 +2,12 @@ import { UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
+import GoogleIdentityButton from '../components/GoogleIdentityButton.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function Registro() {
   const navigate = useNavigate()
+  const { loginWithGoogle } = useAuth()
   const [tipos, setTipos] = useState([])
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -51,6 +54,17 @@ export default function Registro() {
     } catch (err) {
       const errors = err.response?.data?.errors
       setError(errors?.join('. ') || err.response?.data?.message || 'No se pudo crear la cuenta')
+    }
+  }
+
+  async function handleGoogleCredential(credential) {
+    setError('')
+
+    try {
+      const user = await loginWithGoogle(credential)
+      navigate(user.rol === 'admin' ? '/admin' : '/empleado/turnos')
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo crear la cuenta con Google')
     }
   }
 
@@ -108,6 +122,12 @@ export default function Registro() {
         </div>
         {error && <p className="error">{error}</p>}
         <button><UserPlus size={18} /> Registrarme</button>
+        <div className="auth-divider"><span>o</span></div>
+        <GoogleIdentityButton
+          text="signup_with"
+          onCredential={handleGoogleCredential}
+          onError={setError}
+        />
         <Link to="/login">Ya tengo cuenta</Link>
       </form>
     </main>

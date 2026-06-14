@@ -32,13 +32,21 @@ export function AuthProvider({ children }) {
     return res.data.usuario
   }
 
+  async function loginWithGoogle(credential) {
+    const res = await api.post('/auth/google', { credential })
+    localStorage.setItem('token', res.data.token)
+    localStorage.setItem('user', JSON.stringify(res.data.usuario))
+    setUser(res.data.usuario)
+    return res.data.usuario
+  }
+
   function logout() {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)
   }
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading])
+  const value = useMemo(() => ({ user, loading, login, loginWithGoogle, logout }), [user, loading])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
