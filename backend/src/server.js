@@ -2,6 +2,7 @@ import dotenv from 'dotenv'
 import http from 'http'
 import { Server } from 'socket.io'
 import app from './app.js'
+import { getAllowedOrigins } from './config/origins.js'
 
 dotenv.config()
 
@@ -10,7 +11,7 @@ const server = http.createServer(app)
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: getAllowedOrigins(),
   },
 })
 

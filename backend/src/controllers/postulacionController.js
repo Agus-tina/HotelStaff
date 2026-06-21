@@ -45,9 +45,12 @@ export async function postular(req, res) {
 
 export async function misPostulaciones(req, res) {
   const rows = await query(
-    `SELECT p.id AS postulacion_id, p.estado AS estado_postulacion, t.*
+    `SELECT p.id AS postulacion_id, p.estado AS estado_postulacion,
+            a.id AS asignacion_id, a.estado AS estado_asignacion,
+            t.*
      FROM postulaciones p
      JOIN turnos t ON t.id = p.turno_id
+     LEFT JOIN asignaciones_turnos a ON a.turno_id = p.turno_id AND a.usuario_id = p.usuario_id
      WHERE p.usuario_id = ?
      ORDER BY t.fecha ASC`,
     [req.user.id]
@@ -63,14 +66,92 @@ export async function cancelarPostulacion(req, res) {
     return res.status(400).json({ message: 'Id de postulacion invalido' })
   }
 
-  await query(
-    `UPDATE postulaciones SET estado = 'cancelado'
-     WHERE id = ? AND usuario_id = ? AND estado = 'pendiente'`,
-    [postulacionId, req.user.id]
-  )
+  const connection = await (await import('../config/db.js')).pool.getConnection()
 
-  req.app.get('io')?.emit('postulaciones:changed')
-  res.json({ message: 'Postulacion cancelada' })
+  try {
+    await connection.beginTransaction()
+
+    const [rows] = await connection.execute(
+      `SELECT p.id, p.estado AS estado_postulacion, p.turno_id,
+              a.id AS asignacion_id, a.estado AS estado_asignacion,
+              t.estado AS estado_turno
+       FROM postulaciones p
+       JOIN turnos t ON t.id = p.turno_id
+       LEFT JOIN asignaciones_turnos a ON a.turno_id = p.turno_id AND a.usuario_id = p.usuario_id
+       WHERE p.id = ? AND p.usuario_id = ?
+       LIMIT 1`,
+      [postulacionId, req.user.id]
+    )
+
+    const postulacion = rows[0]
+
+    if (!postulacion) {
+      await connection.rollback()
+      return res.status(404).json({ message: 'Postulacion no encontrada' })
+    }
+
+    if (postulacion.estado_postulacion === 'cancelado') {
+      await connection.rollback()
+      return res.status(409).json({ message: 'La postulacion ya esta cancelada' })
+    }
+
+    if (postulacion.estado_postulacion === 'rechazado') {
+      await connection.rollback()
+      return res.status(409).json({ message: 'No se puede cancelar una postulacion rechazada' })
+    }
+
+    if (
+      postulacion.estado_postulacion === 'seleccionado'
+      && postulacion.estado_asignacion !== 'asignado'
+    ) {
+      await connection.rollback()
+      return res.status(409).json({ message: 'No se puede cancelar una asignacion ya confirmada' })
+    }
+
+    if (postulacion.asignacion_id) {
+      await connection.execute(
+        `UPDATE asignaciones_turnos
+         SET estado = 'cancelado'
+         WHERE id = ?`,
+        [postulacion.asignacion_id]
+      )
+    }
+
+    await connection.execute(
+      `UPDATE postulaciones
+       SET estado = 'cancelado'
+       WHERE id = ?`,
+      [postulacion.id]
+    )
+
+    if (postulacion.estado_turno === 'cubierto') {
+      await connection.execute(
+        `UPDATE turnos
+         SET estado = 'modificado'
+         WHERE id = ?`,
+        [postulacion.turno_id]
+      )
+
+      await connection.execute(
+        `UPDATE postulaciones
+         SET estado = 'pendiente'
+         WHERE turno_id = ? AND estado = 'rechazado'`,
+        [postulacion.turno_id]
+      )
+    }
+
+    await connection.commit()
+
+    req.app.get('io')?.emit('turnos:changed')
+    req.app.get('io')?.emit('postulaciones:changed')
+    res.json({ message: 'Postulacion cancelada' })
+  } catch (error) {
+    await connection.rollback()
+    console.error(error)
+    res.status(500).json({ message: 'No se pudo cancelar la postulacion' })
+  } finally {
+    connection.release()
+  }
 }
 
 export async function misTurnos(req, res) {

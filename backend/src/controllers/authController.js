@@ -1,14 +1,38 @@
 import { query } from '../config/db.js'
 import { comparePassword, createToken, hashPassword } from '../utils/auth.js'
 import { validateLoginData, validateRegisterData } from '../utils/validation.js'
+import { cuentaCreadaHtml, enviarEmail } from '../services/emailService.js'
 import { google } from 'googleapis'
 import crypto from 'crypto'
 
 const googleClient = new google.auth.OAuth2()
+const tiposEmpleadoDefault = [
+  { id: 1, nombre: 'Mozo' },
+  { id: 2, nombre: 'Barra' },
+  { id: 3, nombre: 'Recepcion' },
+  { id: 4, nombre: 'Limpieza' },
+  { id: 5, nombre: 'Seguridad' },
+  { id: 6, nombre: 'Casino' },
+  { id: 7, nombre: 'Hotel' },
+  { id: 8, nombre: 'Cocina' },
+]
 
 function publicUser(usuario) {
   const { password, google_id, ...safeUser } = usuario
   return safeUser
+}
+
+async function enviarConfirmacionCuenta({ email, nombre }) {
+  try {
+    await enviarEmail({
+      to: email,
+      subject: 'Cuenta creada correctamente',
+      tipo: 'cuenta_creada',
+      html: cuentaCreadaHtml({ nombre }),
+    })
+  } catch (error) {
+    console.error('No se pudo enviar el email de confirmacion de cuenta', error)
+  }
 }
 
 async function verifyGoogleCredential(credential) {
@@ -102,6 +126,9 @@ export async function register(req, res) {
     }
 
     await connection.commit()
+
+    await enviarConfirmacionCuenta({ email, nombre })
+
     res.status(201).json({ message: 'Cuenta creada correctamente' })
   } catch (error) {
     await connection.rollback()
@@ -146,6 +173,7 @@ export async function login(req, res) {
 
 export async function googleLogin(req, res) {
   const connection = await (await import('../config/db.js')).pool.getConnection()
+  let cuentaCreada = null
 
   try {
     const credential = String(req.body.credential || '')
@@ -202,6 +230,7 @@ export async function googleLogin(req, res) {
           [result.insertId]
         )
         usuario = createdRows[0]
+        cuentaCreada = { email, nombre }
       }
     }
 
@@ -219,6 +248,10 @@ export async function googleLogin(req, res) {
     }
 
     await connection.commit()
+
+    if (cuentaCreada) {
+      await enviarConfirmacionCuenta(cuentaCreada)
+    }
 
     res.json({
       token: createToken(usuario),
@@ -246,6 +279,11 @@ export async function me(req, res) {
 }
 
 export async function tiposEmpleado(_req, res) {
-  const rows = await query('SELECT * FROM tipos_empleado ORDER BY nombre')
-  res.json({ data: rows })
+  try {
+    const rows = await query('SELECT * FROM tipos_empleado ORDER BY nombre')
+    res.json({ data: rows.length ? rows : tiposEmpleadoDefault })
+  } catch (error) {
+    console.error('No se pudieron obtener los tipos de empleado', error)
+    res.json({ data: tiposEmpleadoDefault })
+  }
 }

@@ -1,5 +1,6 @@
 import { createOAuthClient, googleCalendarScopes } from '../config/google.js'
 import { query } from '../config/db.js'
+import { getFrontendUrl } from '../config/origins.js'
 
 export function googleAuthUrl(req, res) {
   const oauth2Client = createOAuthClient()
@@ -19,13 +20,13 @@ export async function googleCallback(req, res) {
 
     if (error) {
       return res.redirect(
-        `${process.env.FRONTEND_URL || 'http://localhost:5173'}/empleado/perfil?google=error`
+        `${getFrontendUrl()}/empleado/perfil?google=error`
       )
     }
 
     if (!code || !state) {
       return res.redirect(
-        `${process.env.FRONTEND_URL || 'http://localhost:5173'}/empleado/perfil?google=missing`
+        `${getFrontendUrl()}/empleado/perfil?google=missing`
       )
     }
 
@@ -53,10 +54,10 @@ export async function googleCallback(req, res) {
       ]
     )
 
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/empleado/perfil?google=ok`)
+    res.redirect(`${getFrontendUrl()}/empleado/perfil?google=ok`)
   } catch (error) {
     console.error('Error vinculando Google Calendar:', error)
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/empleado/perfil?google=error`)
+    res.redirect(`${getFrontendUrl()}/empleado/perfil?google=error`)
   }
 }
 

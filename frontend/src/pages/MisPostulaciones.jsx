@@ -2,9 +2,11 @@ import { BriefcaseBusiness, MapPin, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api from '../api/api.js'
 import { formatDate } from '../utils/format.js'
+import { POSTULACION_STATUS, statusBadgeClass, statusLabel } from '../utils/status.js'
 
 export default function MisPostulaciones() {
   const [postulaciones, setPostulaciones] = useState([])
+  const [error, setError] = useState('')
 
   async function load() {
     const res = await api.get('/postulaciones/mias')
@@ -14,11 +16,23 @@ export default function MisPostulaciones() {
   useEffect(() => { load() }, [])
 
   async function cancelar(id) {
-    await api.delete(`/postulaciones/${id}`)
-    load()
+    setError('')
+
+    try {
+      await api.delete(`/postulaciones/${id}`)
+      load()
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo cancelar la postulacion.')
+    }
   }
 
   const pendientes = postulaciones.filter((p) => p.estado_postulacion === 'pendiente').length
+
+  function puedeCancelar(postulacion) {
+    if (postulacion.estado_postulacion === 'pendiente') return true
+    return postulacion.estado_postulacion === 'seleccionado'
+      && postulacion.estado_asignacion === 'asignado'
+  }
 
   return (
     <main className="page">
@@ -46,6 +60,7 @@ export default function MisPostulaciones() {
       </section>
 
       <section className="table-list">
+        {error && <p className="error">{error}</p>}
         {!postulaciones.length && (
           <div className="empty-state">Todavia no realizaste postulaciones.</div>
         )}
@@ -58,9 +73,11 @@ export default function MisPostulaciones() {
                 <span className="meta-item"><MapPin size={16} /> {p.lugar}</span>
               </div>
             </div>
-            <span className={p.estado_postulacion === 'pendiente' ? 'badge warning' : 'badge'}>{p.estado_postulacion}</span>
+            <span className={statusBadgeClass(p.estado_postulacion, POSTULACION_STATUS)}>
+              {statusLabel(p.estado_postulacion, POSTULACION_STATUS)}
+            </span>
             <div className="row-actions">
-              <button className="icon-button" disabled={p.estado_postulacion !== 'pendiente'} onClick={() => cancelar(p.postulacion_id)} title="Cancelar" aria-label="Cancelar postulacion">
+              <button className="icon-button" disabled={!puedeCancelar(p)} onClick={() => cancelar(p.postulacion_id)} title="Cancelar" aria-label="Cancelar postulacion">
                 <X size={18} />
               </button>
             </div>

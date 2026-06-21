@@ -2,6 +2,7 @@ import { BriefcaseBusiness, CheckCircle, MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api from '../api/api.js'
 import { formatShiftDateTime } from '../utils/format.js'
+import { ASIGNACION_STATUS, statusBadgeClass, statusLabel } from '../utils/status.js'
 
 export default function MisTurnos() {
   const [turnos, setTurnos] = useState([])
@@ -18,7 +19,9 @@ export default function MisTurnos() {
     load()
   }
 
+  const turnosActivos = turnos.filter((turno) => turno.estado_asignacion !== 'cancelado')
   const confirmados = turnos.filter((turno) => turno.estado_asignacion === 'confirmado_asistencia').length
+  const porConfirmar = turnos.filter((turno) => turno.estado_asignacion === 'asignado').length
 
   return (
     <main className="page">
@@ -33,7 +36,7 @@ export default function MisTurnos() {
       <section className="metric-strip" aria-label="Resumen de asignaciones">
         <div className="metric">
           <span>Asignados</span>
-          <strong>{turnos.length}</strong>
+          <strong>{turnosActivos.length}</strong>
         </div>
         <div className="metric">
           <span>Confirmados</span>
@@ -41,7 +44,7 @@ export default function MisTurnos() {
         </div>
         <div className="metric">
           <span>Por confirmar</span>
-          <strong>{turnos.length - confirmados}</strong>
+          <strong>{porConfirmar}</strong>
         </div>
       </section>
 
@@ -58,8 +61,10 @@ export default function MisTurnos() {
                 <span className="meta-item"><MapPin size={16} /> {turno.lugar} &middot; {turno.direccion}</span>
               </div>
             </div>
-            <span className={turno.estado_asignacion === 'confirmado_asistencia' ? 'badge' : 'badge warning'}>{turno.estado_asignacion}</span>
-            <button disabled={turno.estado_asignacion === 'confirmado_asistencia'} onClick={() => confirmar(turno.asignacion_id)}>
+            <span className={statusBadgeClass(turno.estado_asignacion, ASIGNACION_STATUS)}>
+              {statusLabel(turno.estado_asignacion, ASIGNACION_STATUS)}
+            </span>
+            <button disabled={turno.estado_asignacion !== 'asignado'} onClick={() => confirmar(turno.asignacion_id)}>
               <CheckCircle size={18} /> Confirmar asistencia
             </button>
           </article>

@@ -1,4 +1,4 @@
-import { query } from '../config/db.js'
+import { pool, query } from '../config/db.js'
 import { createCalendarEventIfLinked } from '../services/calendarService.js'
 import { enviarEmail, turnoHtml } from '../services/emailService.js'
 
@@ -50,7 +50,7 @@ function validateTurnoData(data) {
 export async function listTurnos(req, res) {
   const rows = await query(
     `SELECT t.*,
-      COUNT(a.id) AS empleados_asignados
+      SUM(CASE WHEN a.estado <> 'cancelado' THEN 1 ELSE 0 END) AS empleados_asignados
      FROM turnos t
      LEFT JOIN asignaciones_turnos a ON a.turno_id = t.id
      WHERE t.administrador_id = ?
@@ -211,12 +211,52 @@ export async function deleteTurno(req, res) {
     return res.status(400).json({ message: 'Id de turno invalido' })
   }
 
-  await query(
-    "UPDATE turnos SET estado = 'cancelado' WHERE id = ? AND administrador_id = ?",
-    [turnoId, req.user.id]
-  )
-  req.app.get('io')?.emit('turnos:changed')
-  res.json({ message: 'Turno cancelado' })
+  const connection = await pool.getConnection()
+
+  try {
+    await connection.beginTransaction()
+
+    const [turnoRows] = await connection.execute(
+      'SELECT id FROM turnos WHERE id = ? AND administrador_id = ? LIMIT 1',
+      [turnoId, req.user.id]
+    )
+
+    if (!turnoRows.length) {
+      await connection.rollback()
+      return res.status(404).json({ message: 'Turno no encontrado' })
+    }
+
+    await connection.execute(
+      "UPDATE turnos SET estado = 'cancelado' WHERE id = ?",
+      [turnoId]
+    )
+
+    await connection.execute(
+      `UPDATE asignaciones_turnos
+       SET estado = 'cancelado'
+       WHERE turno_id = ? AND estado <> 'cancelado'`,
+      [turnoId]
+    )
+
+    await connection.execute(
+      `UPDATE postulaciones
+       SET estado = 'cancelado'
+       WHERE turno_id = ? AND estado <> 'cancelado'`,
+      [turnoId]
+    )
+
+    await connection.commit()
+
+    req.app.get('io')?.emit('turnos:changed')
+    req.app.get('io')?.emit('postulaciones:changed')
+    res.json({ message: 'Turno cancelado' })
+  } catch (error) {
+    await connection.rollback()
+    console.error(error)
+    res.status(500).json({ message: 'No se pudo cancelar el turno' })
+  } finally {
+    connection.release()
+  }
 }
 
 export async function getPostulados(req, res) {
@@ -228,19 +268,111 @@ export async function getPostulados(req, res) {
 
   const rows = await query(
     `SELECT p.id AS postulacion_id, p.estado AS estado_postulacion,
-            u.id, u.nombre, u.apellido, u.email, u.telefono, u.estado
+            a.id AS asignacion_id, a.estado AS estado_asignacion,
+            u.id, u.nombre, u.apellido, u.email, u.telefono, u.estado,
+            GROUP_CONCAT(te.nombre ORDER BY te.nombre SEPARATOR ', ') AS conocimientos
      FROM postulaciones p
      JOIN usuarios u ON u.id = p.usuario_id
+     LEFT JOIN asignaciones_turnos a ON a.turno_id = p.turno_id AND a.usuario_id = p.usuario_id
+     LEFT JOIN usuario_tipos_empleado ute ON ute.usuario_id = u.id
+     LEFT JOIN tipos_empleado te ON te.id = ute.tipo_empleado_id
      WHERE p.turno_id = ?
        AND EXISTS (
          SELECT 1 FROM turnos t
          WHERE t.id = p.turno_id AND t.administrador_id = ?
        )
+     GROUP BY p.id, p.estado, a.id, a.estado, u.id, u.nombre, u.apellido, u.email, u.telefono, u.estado
      ORDER BY p.creado_en ASC`,
     [turnoId, req.user.id]
   )
 
   res.json({ data: rows })
+}
+
+export async function darDeBajaPostulacion(req, res) {
+  const turnoId = positiveInteger(req.params.id)
+  const postulacionId = positiveInteger(req.params.postulacionId)
+
+  if (!turnoId || !postulacionId) {
+    return res.status(400).json({ message: 'Ids invalidos' })
+  }
+
+  const connection = await (await import('../config/db.js')).pool.getConnection()
+
+  try {
+    await connection.beginTransaction()
+
+    const [rows] = await connection.execute(
+      `SELECT p.id, p.usuario_id, p.estado AS estado_postulacion,
+              a.id AS asignacion_id, a.estado AS estado_asignacion,
+              t.id AS turno_id, t.estado AS estado_turno
+       FROM postulaciones p
+       JOIN turnos t ON t.id = p.turno_id
+       LEFT JOIN asignaciones_turnos a ON a.turno_id = p.turno_id AND a.usuario_id = p.usuario_id
+       WHERE p.id = ? AND p.turno_id = ? AND t.administrador_id = ?
+       LIMIT 1`,
+      [postulacionId, turnoId, req.user.id]
+    )
+
+    const postulacion = rows[0]
+
+    if (!postulacion) {
+      await connection.rollback()
+      return res.status(404).json({ message: 'Postulacion no encontrada' })
+    }
+
+    if (!postulacion.asignacion_id || postulacion.estado_postulacion !== 'seleccionado') {
+      await connection.rollback()
+      return res.status(409).json({ message: 'La postulacion no esta seleccionada' })
+    }
+
+    if (!['asignado', 'confirmado_asistencia'].includes(postulacion.estado_asignacion)) {
+      await connection.rollback()
+      return res.status(409).json({ message: 'La asignacion no esta activa' })
+    }
+
+    await connection.execute(
+      `UPDATE asignaciones_turnos
+       SET estado = 'cancelado'
+       WHERE id = ?`,
+      [postulacion.asignacion_id]
+    )
+
+    await connection.execute(
+      `UPDATE postulaciones
+       SET estado = 'cancelado'
+       WHERE id = ?`,
+      [postulacion.id]
+    )
+
+    if (postulacion.estado_turno === 'cubierto') {
+      await connection.execute(
+        `UPDATE turnos
+         SET estado = 'modificado'
+         WHERE id = ?`,
+        [postulacion.turno_id]
+      )
+
+      await connection.execute(
+        `UPDATE postulaciones
+         SET estado = 'pendiente'
+         WHERE turno_id = ? AND estado = 'rechazado'`,
+        [postulacion.turno_id]
+      )
+    }
+
+    await connection.commit()
+
+    req.app.get('io')?.emit('turnos:changed')
+    req.app.get('io')?.emit('postulaciones:changed')
+    res.json({ message: 'Empleado cancelado del turno' })
+  } catch (error) {
+    await connection.rollback()
+    console.error(error)
+    res.status(500).json({ message: 'No se pudo cancelar el empleado del turno' })
+  } finally {
+    connection.release()
+  }
 }
 
 export async function asignarEmpleados(req, res) {
@@ -279,7 +411,9 @@ export async function asignarEmpleados(req, res) {
     }
 
     const [asignadosRows] = await connection.execute(
-      'SELECT COUNT(*) AS total FROM asignaciones_turnos WHERE turno_id = ?',
+      `SELECT COUNT(*) AS total
+       FROM asignaciones_turnos
+       WHERE turno_id = ? AND estado <> 'cancelado'`,
       [turno.id]
     )
     const cuposRestantes = turno.cantidad_empleados - asignadosRows[0].total
@@ -296,7 +430,7 @@ export async function asignarEmpleados(req, res) {
         `SELECT p.*, u.email, u.nombre
          FROM postulaciones p
          JOIN usuarios u ON u.id = p.usuario_id
-         WHERE p.id = ? AND p.turno_id = ?`,
+         WHERE p.id = ? AND p.turno_id = ? AND p.estado = 'pendiente'`,
         [postulacionId, turno.id]
       )
       const postulacion = postulacionRows[0]
@@ -317,7 +451,9 @@ export async function asignarEmpleados(req, res) {
     }
 
     const [totalRows] = await connection.execute(
-      'SELECT COUNT(*) AS total FROM asignaciones_turnos WHERE turno_id = ?',
+      `SELECT COUNT(*) AS total
+       FROM asignaciones_turnos
+       WHERE turno_id = ? AND estado <> 'cancelado'`,
       [turno.id]
     )
 

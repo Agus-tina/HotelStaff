@@ -2,6 +2,7 @@ import { Router } from 'express'
 import {
   asignarEmpleados,
   createTurno,
+  darDeBajaPostulacion,
   deleteTurno,
   getPostulados,
   listDisponibles,
@@ -19,5 +20,6 @@ router.put('/:id', requireAuth, requireRole('admin'), updateTurno)
 router.delete('/:id', requireAuth, requireRole('admin'), deleteTurno)
 router.get('/:id/postulados', requireAuth, requireRole('admin'), getPostulados)
 router.post('/:id/asignar', requireAuth, requireRole('admin'), asignarEmpleados)
+router.put('/:id/postulaciones/:postulacionId/baja', requireAuth, requireRole('admin'), darDeBajaPostulacion)
 
 export default router

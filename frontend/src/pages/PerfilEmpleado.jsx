@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarPlus, Save, Unlink } from 'lucide-react'
+import { CalendarCheck, CalendarPlus, KeyRound, Save, Unlink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api from '../api/api.js'
 
@@ -7,6 +7,13 @@ export default function PerfilEmpleado() {
   const [form, setForm] = useState(null)
   const [googleLinked, setGoogleLinked] = useState(false)
   const [message, setMessage] = useState('')
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordForm, setPasswordForm] = useState({
+    passwordActual: '',
+    passwordNueva: '',
+    confirmarPassword: '',
+  })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -57,6 +64,32 @@ export default function PerfilEmpleado() {
     await api.delete('/google/unlink')
     setGoogleLinked(false)
     setMessage('Google Calendar desvinculado.')
+  }
+
+  async function changePassword(e) {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordMessage('')
+
+    if (passwordForm.passwordNueva !== passwordForm.confirmarPassword) {
+      setPasswordError('La confirmacion no coincide con la nueva contraseña.')
+      return
+    }
+
+    try {
+      await api.put('/empleados/password', {
+        passwordActual: passwordForm.passwordActual,
+        passwordNueva: passwordForm.passwordNueva,
+      })
+      setPasswordForm({
+        passwordActual: '',
+        passwordNueva: '',
+        confirmarPassword: '',
+      })
+      setPasswordMessage('Contraseña actualizada correctamente.')
+    } catch (error) {
+      setPasswordError(error.response?.data?.message || 'No se pudo cambiar la contraseña.')
+    }
   }
 
   const labels = {
@@ -114,6 +147,46 @@ export default function PerfilEmpleado() {
               <CalendarPlus size={18} /> Vincular Google Calendar
             </button>
           )}
+        </div>
+      </form>
+
+      <form className="panel form-grid password-panel" onSubmit={changePassword}>
+        <div className="full">
+          <h3>Cambiar contraseña</h3>
+        </div>
+        <label>
+          Contraseña actual
+          <input
+            type="password"
+            value={passwordForm.passwordActual}
+            onChange={(e) => setPasswordForm({ ...passwordForm, passwordActual: e.target.value })}
+            required
+          />
+        </label>
+        <label>
+          Nueva contraseña
+          <input
+            type="password"
+            minLength={6}
+            value={passwordForm.passwordNueva}
+            onChange={(e) => setPasswordForm({ ...passwordForm, passwordNueva: e.target.value })}
+            required
+          />
+        </label>
+        <label className="full">
+          Confirmar nueva contraseña
+          <input
+            type="password"
+            minLength={6}
+            value={passwordForm.confirmarPassword}
+            onChange={(e) => setPasswordForm({ ...passwordForm, confirmarPassword: e.target.value })}
+            required
+          />
+        </label>
+        {passwordError && <p className="full error">{passwordError}</p>}
+        {passwordMessage && <p className="full success">{passwordMessage}</p>}
+        <div className="form-actions full">
+          <button><KeyRound size={18} /> Actualizar contraseña</button>
         </div>
       </form>
     </main>

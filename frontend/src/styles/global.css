@@ -362,13 +362,17 @@ button svg,
   align-items: center;
 }
 
+.password-panel {
+  margin-top: 18px;
+}
+
 .full {
   grid-column: 1 / -1;
 }
 
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -484,6 +488,10 @@ button svg,
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
+.postulados-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -499,6 +507,12 @@ button svg,
   white-space: nowrap;
 }
 
+.badge.success {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: rgba(21, 128, 61, 0.18);
+}
+
 .badge.neutral {
   color: #475569;
   background: #f1f5f9;
@@ -509,6 +523,12 @@ button svg,
   color: var(--warning);
   background: var(--warning-soft);
   border-color: rgba(180, 83, 9, 0.18);
+}
+
+.badge.danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: rgba(185, 28, 28, 0.18);
 }
 
 .chips {

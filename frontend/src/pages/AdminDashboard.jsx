@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/api.js'
 import { formatShiftDateTime } from '../utils/format.js'
+import { TURNO_STATUS, statusBadgeClass, statusLabel } from '../utils/status.js'
 
 export default function AdminDashboard() {
   const [turnos, setTurnos] = useState([])
@@ -61,7 +62,9 @@ export default function AdminDashboard() {
                 <span className="meta-item"><MapPin size={16} /> {turno.lugar} &middot; {turno.direccion}</span>
               </div>
             </div>
-            <span className="badge">{turno.estado}</span>
+            <span className={statusBadgeClass(turno.estado, TURNO_STATUS)}>
+              {statusLabel(turno.estado, TURNO_STATUS)}
+            </span>
             <span className="meta-item"><Users size={16} /> {turno.empleados_asignados}/{turno.cantidad_empleados}</span>
             <div className="row-actions">
               <Link className="icon-button" to={`/admin/turnos/${turno.id}/postulados`} title="Ver postulados" aria-label="Ver postulados">

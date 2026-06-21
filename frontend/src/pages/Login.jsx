@@ -42,7 +42,7 @@ export default function Login() {
         </div>
         <label htmlFor="identifier">Email o usuario</label>
         <input id="identifier" value={form.identifier} onChange={(e) => setForm({ ...form, identifier: e.target.value })} required />
-        <label htmlFor="password">Contrasena</label>
+        <label htmlFor="password">Contraseña</label>
         <input id="password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
         {error && <p className="error">{error}</p>}
         <button><LogIn size={18} /> Entrar</button>

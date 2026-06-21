@@ -5,6 +5,17 @@ import api from '../api/api.js'
 import GoogleIdentityButton from '../components/GoogleIdentityButton.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
+const tiposEmpleadoDefault = [
+  { id: 1, nombre: 'Mozo' },
+  { id: 2, nombre: 'Barra' },
+  { id: 3, nombre: 'Recepcion' },
+  { id: 4, nombre: 'Limpieza' },
+  { id: 5, nombre: 'Seguridad' },
+  { id: 6, nombre: 'Casino' },
+  { id: 7, nombre: 'Hotel' },
+  { id: 8, nombre: 'Cocina' },
+]
+
 export default function Registro() {
   const navigate = useNavigate()
   const { loginWithGoogle } = useAuth()
@@ -22,7 +33,10 @@ export default function Registro() {
   })
 
   useEffect(() => {
-    api.get('/auth/tipos-empleado').then((res) => setTipos(res.data.data))
+    api
+      .get('/auth/tipos-empleado')
+      .then((res) => setTipos(res.data.data || tiposEmpleadoDefault))
+      .catch(() => setTipos(tiposEmpleadoDefault))
   }, [])
 
   function updateField(field, value) {
