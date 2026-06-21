@@ -9,7 +9,12 @@ import { getAllowedOrigins } from './config/origins.js'
 
 const app = express()
 
-app.use(cors({ origin: getAllowedOrigins() }))
+app.use(cors({ 
+  origin: getAllowedOrigins(),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+ }))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
