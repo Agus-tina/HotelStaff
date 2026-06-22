@@ -2,6 +2,8 @@
 
 Sistema de gestión de turnos y personal para hoteles. Reemplaza la coordinación informal por WhatsApp con una plataforma centralizada, trazable y con notificaciones automáticas.
 
+
+SOLO USAR ESTE LINK PARA ACCEDER A LA APLICACIÓN
 🔗 **Demo en 
 [https://hotel-staff-eosin.vercel.app](https://hotel-staff-eosin.vercel.app)
 
