@@ -2,7 +2,8 @@
 
 Sistema de gestión de turnos y personal para hoteles. Reemplaza la coordinación informal por WhatsApp con una plataforma centralizada, trazable y con notificaciones automáticas.
 
-🔗 **Demo en vivo:** [hotel-staff-aguz.vercel.app](https://hotel-staff-aguz.vercel.app)
+🔗 **Demo en 
+[https://hotel-staff-eosin.vercel.app](https://hotel-staff-eosin.vercel.app)
 📦 **Repositorio:** [github.com/Agus-tina/HotelStaff](https://github.com/Agus-tina/HotelStaff)
 
 ---
