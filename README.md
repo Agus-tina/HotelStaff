@@ -4,6 +4,7 @@ Sistema de gestión de turnos y personal para hoteles. Reemplaza la coordinació
 
 🔗 **Demo en 
 [https://hotel-staff-eosin.vercel.app](https://hotel-staff-eosin.vercel.app)
+
 📦 **Repositorio:** [github.com/Agus-tina/HotelStaff](https://github.com/Agus-tina/HotelStaff)
 
 ---
@@ -112,7 +113,7 @@ Ver `.env.example` para la referencia completa.
 
 ## Documentación adicional
 
-La documentación técnica completa, la guía de usuario y el reporte de pruebas de regresión se encuentran en la carpeta [`/docs`](./docs) y en la Carpeta de Proyecto entregada para la cátedra.
+La documentación técnica completa, la guía de usuario y el reporte de pruebas de regresión se encuentran en la Carpeta de Proyecto entregada para la cátedra.
 
 ## Materia
 
